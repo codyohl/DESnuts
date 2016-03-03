@@ -13,4 +13,4 @@ main.o:
 	$(CC) $(CFLAGS) -c main.c
 
 clean:
-	rm des_c_version des.o main.o
+	rm des_c_version des.o main.o des.h.gch
