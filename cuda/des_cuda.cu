@@ -152,74 +152,136 @@ void print_bits_array(uint64_t n) {
 }
 
 #define COMPUTE_ROUND_KEY(roundKey, key)        \
-    roundKey |= ((key & ((1UL) << 55)) >> (26));    \
-    roundKey |= ((key & ((1UL) << 54)) >> (17));    \
-    roundKey |= ((key & ((1UL) << 53)) >> (8));     \
-    roundKey |= ((key & ((1UL) << 52)) >> (27));    \
-    roundKey |= ((key & ((1UL) << 51)) >> (34));    \
-    roundKey |= ((key & ((1UL) << 50)) >> (41));    \
-    roundKey |= ((key & ((1UL) << 49)) >> (48));    \
-    roundKey |= ((key & ((1UL) << 48)) >> (18));    \
-    roundKey |= ((key & ((1UL) << 47)) >> (9));     \
-    roundKey |= ((key & ((1UL) << 46)) << (0));     \
-    roundKey |= ((key & ((1UL) << 45)) >> (19));    \
-    roundKey |= ((key & ((1UL) << 44)) >> (26));    \
-    roundKey |= ((key & ((1UL) << 43)) >> (33));    \
-    roundKey |= ((key & ((1UL) << 42)) >> (40));    \
-    roundKey |= ((key & ((1UL) << 41)) >> (10));    \
-    roundKey |= ((key & ((1UL) << 40)) >> (1));     \
-    roundKey |= ((key & ((1UL) << 39)) << (8));     \
-    roundKey |= ((key & ((1UL) << 38)) >> (11));    \
-    roundKey |= ((key & ((1UL) << 37)) >> (18));    \
-    roundKey |= ((key & ((1UL) << 36)) >> (25));    \
-    roundKey |= ((key & ((1UL) << 35)) >> (32));    \
-    roundKey |= ((key & ((1UL) << 34)) >> (2));     \
-    roundKey |= ((key & ((1UL) << 33)) << (7));     \
-    roundKey |= ((key & ((1UL) << 32)) << (16));    \
-    roundKey |= ((key & ((1UL) << 31)) >> (3));     \
-    roundKey |= ((key & ((1UL) << 30)) >> (10));    \
-    roundKey |= ((key & ((1UL) << 29)) >> (17));    \
-    roundKey |= ((key & ((1UL) << 28)) >> (24));    \
-    roundKey |= ((key & ((1UL) << 27)) << (6));     \
-    roundKey |= ((key & ((1UL) << 26)) << (15));    \
-    roundKey |= ((key & ((1UL) << 25)) << (24));    \
-    roundKey |= ((key & ((1UL) << 24)) << (29));    \
-    roundKey |= ((key & ((1UL) << 23)) >> (2));     \
-    roundKey |= ((key & ((1UL) << 22)) >> (9));     \
-    roundKey |= ((key & ((1UL) << 21)) >> (16));    \
-    roundKey |= ((key & ((1UL) << 20)) << (14));    \
-    roundKey |= ((key & ((1UL) << 19)) << (23));    \
-    roundKey |= ((key & ((1UL) << 18)) << (32));    \
-    roundKey |= ((key & ((1UL) << 17)) << (37));    \
-    roundKey |= ((key & ((1UL) << 16)) << (6));     \
-    roundKey |= ((key & ((1UL) << 15)) >> (1));     \
-    roundKey |= ((key & ((1UL) << 14)) >> (8));     \
-    roundKey |= ((key & ((1UL) << 13)) << (22));    \
-    roundKey |= ((key & ((1UL) << 12)) << (31));    \
-    roundKey |= ((key & ((1UL) << 11)) << (40));    \
-    roundKey |= ((key & ((1UL) << 10)) << (45));    \
-    roundKey |= ((key & ((1UL) << 9)) << (14));     \
-    roundKey |= ((key & ((1UL) << 8)) << (7));  \
-    roundKey |= ((key & ((1UL) << 7)) << (0));  \
-    roundKey |= ((key & ((1UL) << 6)) << (30));     \
-    roundKey |= ((key & ((1UL) << 5)) << (39));     \
-    roundKey |= ((key & ((1UL) << 4)) << (48));     \
-    roundKey |= ((key & ((1UL) << 3)) << (53));     \
-    roundKey |= ((key & ((1UL) << 2)) << (22));     \
-    roundKey |= ((key & ((1UL) << 1)) << (15));     \
-    roundKey |= ((key & ((1UL) << 0)) << (8));  \
+    roundKey |= ((key & ((1UL) << 0)) << (27));     \
+    roundKey |= ((key & ((1UL) << 1)) << (18));     \
+    roundKey |= ((key & ((1UL) << 2)) << (9));  \
+    roundKey |= ((key & ((1UL) << 3)) << (28));     \
+    roundKey |= ((key & ((1UL) << 4)) << (35));     \
+    roundKey |= ((key & ((1UL) << 5)) << (42));     \
+    roundKey |= ((key & ((1UL) << 6)) << (49));     \
+    roundKey |= ((key & ((1UL) << 7)) << (19));     \
+    roundKey |= ((key & ((1UL) << 8)) << (10));     \
+    roundKey |= ((key & ((1UL) << 9)) << (1));  \
+    roundKey |= ((key & ((1UL) << 10)) << (20));    \
+    roundKey |= ((key & ((1UL) << 11)) << (27));    \
+    roundKey |= ((key & ((1UL) << 12)) << (34));    \
+    roundKey |= ((key & ((1UL) << 13)) << (41));    \
+    roundKey |= ((key & ((1UL) << 14)) << (11));    \
+    roundKey |= ((key & ((1UL) << 15)) << (2));     \
+    roundKey |= ((key & ((1UL) << 16)) >> (7));     \
+    roundKey |= ((key & ((1UL) << 17)) << (12));    \
+    roundKey |= ((key & ((1UL) << 18)) << (19));    \
+    roundKey |= ((key & ((1UL) << 19)) << (26));    \
+    roundKey |= ((key & ((1UL) << 20)) << (33));    \
+    roundKey |= ((key & ((1UL) << 21)) << (3));     \
+    roundKey |= ((key & ((1UL) << 22)) >> (6));     \
+    roundKey |= ((key & ((1UL) << 23)) >> (15));    \
+    roundKey |= ((key & ((1UL) << 24)) << (4));     \
+    roundKey |= ((key & ((1UL) << 25)) << (11));    \
+    roundKey |= ((key & ((1UL) << 26)) << (18));    \
+    roundKey |= ((key & ((1UL) << 27)) << (25));    \
+    roundKey |= ((key & ((1UL) << 28)) >> (5));     \
+    roundKey |= ((key & ((1UL) << 29)) >> (14));    \
+    roundKey |= ((key & ((1UL) << 30)) >> (23));    \
+    roundKey |= ((key & ((1UL) << 31)) >> (28));    \
+    roundKey |= ((key & ((1UL) << 32)) << (3));     \
+    roundKey |= ((key & ((1UL) << 33)) << (10));    \
+    roundKey |= ((key & ((1UL) << 34)) << (17));    \
+    roundKey |= ((key & ((1UL) << 35)) >> (13));    \
+    roundKey |= ((key & ((1UL) << 36)) >> (22));    \
+    roundKey |= ((key & ((1UL) << 37)) >> (31));    \
+    roundKey |= ((key & ((1UL) << 38)) >> (36));    \
+    roundKey |= ((key & ((1UL) << 39)) >> (5));     \
+    roundKey |= ((key & ((1UL) << 40)) << (2));     \
+    roundKey |= ((key & ((1UL) << 41)) << (9));     \
+    roundKey |= ((key & ((1UL) << 42)) >> (21));    \
+    roundKey |= ((key & ((1UL) << 43)) >> (30));    \
+    roundKey |= ((key & ((1UL) << 44)) >> (39));    \
+    roundKey |= ((key & ((1UL) << 45)) >> (44));    \
+    roundKey |= ((key & ((1UL) << 46)) >> (13));    \
+    roundKey |= ((key & ((1UL) << 47)) >> (6));     \
+    roundKey |= ((key & ((1UL) << 48)) << (1));     \
+    roundKey |= ((key & ((1UL) << 49)) >> (29));    \
+    roundKey |= ((key & ((1UL) << 50)) >> (38));    \
+    roundKey |= ((key & ((1UL) << 51)) >> (47));    \
+    roundKey |= ((key & ((1UL) << 52)) >> (52));    \
+    roundKey |= ((key & ((1UL) << 53)) >> (21));    \
+    roundKey |= ((key & ((1UL) << 54)) >> (14));    \
+    roundKey |= ((key & ((1UL) << 55)) >> (7));     \
 
 
 #define COMPUTE_IP(L, R, in)            \
-    uint64_t output;                    \
-for (i = 63; i >= 0; i--)           \
-output |= ((in & ((1) << i)) >> i) << table_DES_IP[i];  \
-for (i = 63; i >= 0; i--) {         \
-    if (i >= 32)                    \
-    L |= ((output & ((1) << i)) >> i) << (i - 32);      \
-    else                            \
-    R |= ((output & ((1) << i)) >> i) << (i);           \
-}                           
+    uint64_t output = 0UL;                    \
+    output |= ((in & ((1UL) << 63)) >> (39));   \
+    output |= ((in & ((1UL) << 62)) >> (6));    \
+    output |= ((in & ((1UL) << 61)) >> (45));   \
+    output |= ((in & ((1UL) << 60)) >> (12));   \
+    output |= ((in & ((1UL) << 59)) >> (51));   \
+    output |= ((in & ((1UL) << 58)) >> (18));   \
+    output |= ((in & ((1UL) << 57)) >> (57));   \
+    output |= ((in & ((1UL) << 56)) >> (24));   \
+    output |= ((in & ((1UL) << 55)) >> (30));   \
+    output |= ((in & ((1UL) << 54)) << (3));    \
+    output |= ((in & ((1UL) << 53)) >> (36));   \
+    output |= ((in & ((1UL) << 52)) >> (3));    \
+    output |= ((in & ((1UL) << 51)) >> (42));   \
+    output |= ((in & ((1UL) << 50)) >> (9));    \
+    output |= ((in & ((1UL) << 49)) >> (48));   \
+    output |= ((in & ((1UL) << 48)) >> (15));   \
+    output |= ((in & ((1UL) << 47)) >> (21));   \
+    output |= ((in & ((1UL) << 46)) << (12));   \
+    output |= ((in & ((1UL) << 45)) >> (27));   \
+    output |= ((in & ((1UL) << 44)) << (6));    \
+    output |= ((in & ((1UL) << 43)) >> (33));   \
+    output |= ((in & ((1UL) << 42)) << (0));    \
+    output |= ((in & ((1UL) << 41)) >> (39));   \
+    output |= ((in & ((1UL) << 40)) >> (6));    \
+    output |= ((in & ((1UL) << 39)) >> (12));   \
+    output |= ((in & ((1UL) << 38)) << (21));   \
+    output |= ((in & ((1UL) << 37)) >> (18));   \
+    output |= ((in & ((1UL) << 36)) << (15));   \
+    output |= ((in & ((1UL) << 35)) >> (24));   \
+    output |= ((in & ((1UL) << 34)) << (9));    \
+    output |= ((in & ((1UL) << 33)) >> (30));   \
+    output |= ((in & ((1UL) << 32)) << (3));    \
+    output |= ((in & ((1UL) << 31)) >> (3));    \
+    output |= ((in & ((1UL) << 30)) << (30));   \
+    output |= ((in & ((1UL) << 29)) >> (9));    \
+    output |= ((in & ((1UL) << 28)) << (24));   \
+    output |= ((in & ((1UL) << 27)) >> (15));   \
+    output |= ((in & ((1UL) << 26)) << (18));   \
+    output |= ((in & ((1UL) << 25)) >> (21));   \
+    output |= ((in & ((1UL) << 24)) << (12));   \
+    output |= ((in & ((1UL) << 23)) << (6));    \
+    output |= ((in & ((1UL) << 22)) << (39));   \
+    output |= ((in & ((1UL) << 21)) << (0));    \
+    output |= ((in & ((1UL) << 20)) << (33));   \
+    output |= ((in & ((1UL) << 19)) >> (6));    \
+    output |= ((in & ((1UL) << 18)) << (27));   \
+    output |= ((in & ((1UL) << 17)) >> (12));   \
+    output |= ((in & ((1UL) << 16)) << (21));   \
+    output |= ((in & ((1UL) << 15)) << (15));   \
+    output |= ((in & ((1UL) << 14)) << (48));   \
+    output |= ((in & ((1UL) << 13)) << (9));    \
+    output |= ((in & ((1UL) << 12)) << (42));   \
+    output |= ((in & ((1UL) << 11)) << (3));    \
+    output |= ((in & ((1UL) << 10)) << (36));   \
+    output |= ((in & ((1UL) << 9)) >> (3));     \
+    output |= ((in & ((1UL) << 8)) << (30));    \
+    output |= ((in & ((1UL) << 7)) << (24));    \
+    output |= ((in & ((1UL) << 6)) << (57));    \
+    output |= ((in & ((1UL) << 5)) << (18));    \
+    output |= ((in & ((1UL) << 4)) << (51));    \
+    output |= ((in & ((1UL) << 3)) << (12));    \
+    output |= ((in & ((1UL) << 2)) << (45));    \
+    output |= ((in & ((1UL) << 1)) << (6));     \
+    output |= ((in & ((1UL) << 0)) << (39));    \
+                                                \
+    L = (output >> 32) & 0xFFFFFFFF;            \
+    R = (output) & 0xFFFFFFFF;                  \
+
+
+    
 
 __global__ void EncryptDES(uint64_t key, uint64_t in, uint64_t expected) {
     int i, round;
@@ -259,8 +321,8 @@ __global__ void EncryptDES(uint64_t key, uint64_t in, uint64_t expected) {
 }
 
 void EncryptDES_host(uint64_t key, uint64_t in, uint64_t expected) {
-    int i, round;
-    uint32_t R, L, fout; 
+    int i = 0, round = 0;
+    uint32_t R = 0, L = 0, fout = 0; 
     uint64_t roundKey = 0UL, out;
     
     printf("sizeof(unsigned long long) is %d\n", sizeof(unsigned long long));
