@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-#define MASK56(n) ((n) & 0x0FFFFFFF)
+#define MASK56(n) ((n) & 0x00FFFFFFFFFFFFFF)
 
 int main(int argc, char **argv) {
     bool *original = (bool *) malloc(sizeof(bool) * 64);
@@ -15,11 +15,12 @@ int main(int argc, char **argv) {
     uint64_t random_o = 0x19238563cafebeef;
     uint64_t random_k = MASK56(0xffff223112feabf);
 
-    for (int i = 63; i >= 0; i--) {
-        original[i] = random_o & (0x1 << i) ? 1 : 0;
+
+    for (int i = 0; i < 64; i++) {
+        original[63 - i] = random_o & (0x1 << i) ? 1 : 0;
     }
 
-    for (int i = 55; i >= 0; i--) {
+    for (int i = 0; i < 64; i++) {
         key[i] = random_k & (0x1 << i) ? 1 : 0;
     }
 
@@ -39,7 +40,7 @@ int main(int argc, char **argv) {
     printf("\n");
 
 
-    EncryptDES(key, afterDES, original, 0);
+    EncryptDES(key, afterDES, original, 1);
 
     printf("The encrypt  is :\n");
     for (int i = 0; i < 64; i++) {

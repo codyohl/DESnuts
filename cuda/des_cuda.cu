@@ -2,6 +2,9 @@
 
 #include <cuda.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stdio.h>
 
 /**********************************************************************/
 /*                                                                    */
@@ -142,5 +145,154 @@ static int table_DES_S[8][64] = {
         15,  5, 12, 11,  9,  3,  7, 14,  3, 10, 10,  0,  5,  6,  0, 13  }
 };
 
+#define MASK56(n) ((n) & 0x00FFFFFFFFFFFFFF)
 
+void print_bits_array(uint64_t n) {
+    printf("%lX\n", n);
+}
+
+#define COMPUTE_ROUND_KEY(roundKey, key)        \
+    roundKey |= ((key & ((1UL) << 55)) >> (26));    \
+    roundKey |= ((key & ((1UL) << 54)) >> (17));    \
+    roundKey |= ((key & ((1UL) << 53)) >> (8));     \
+    roundKey |= ((key & ((1UL) << 52)) >> (27));    \
+    roundKey |= ((key & ((1UL) << 51)) >> (34));    \
+    roundKey |= ((key & ((1UL) << 50)) >> (41));    \
+    roundKey |= ((key & ((1UL) << 49)) >> (48));    \
+    roundKey |= ((key & ((1UL) << 48)) >> (18));    \
+    roundKey |= ((key & ((1UL) << 47)) >> (9));     \
+    roundKey |= ((key & ((1UL) << 46)) << (0));     \
+    roundKey |= ((key & ((1UL) << 45)) >> (19));    \
+    roundKey |= ((key & ((1UL) << 44)) >> (26));    \
+    roundKey |= ((key & ((1UL) << 43)) >> (33));    \
+    roundKey |= ((key & ((1UL) << 42)) >> (40));    \
+    roundKey |= ((key & ((1UL) << 41)) >> (10));    \
+    roundKey |= ((key & ((1UL) << 40)) >> (1));     \
+    roundKey |= ((key & ((1UL) << 39)) << (8));     \
+    roundKey |= ((key & ((1UL) << 38)) >> (11));    \
+    roundKey |= ((key & ((1UL) << 37)) >> (18));    \
+    roundKey |= ((key & ((1UL) << 36)) >> (25));    \
+    roundKey |= ((key & ((1UL) << 35)) >> (32));    \
+    roundKey |= ((key & ((1UL) << 34)) >> (2));     \
+    roundKey |= ((key & ((1UL) << 33)) << (7));     \
+    roundKey |= ((key & ((1UL) << 32)) << (16));    \
+    roundKey |= ((key & ((1UL) << 31)) >> (3));     \
+    roundKey |= ((key & ((1UL) << 30)) >> (10));    \
+    roundKey |= ((key & ((1UL) << 29)) >> (17));    \
+    roundKey |= ((key & ((1UL) << 28)) >> (24));    \
+    roundKey |= ((key & ((1UL) << 27)) << (6));     \
+    roundKey |= ((key & ((1UL) << 26)) << (15));    \
+    roundKey |= ((key & ((1UL) << 25)) << (24));    \
+    roundKey |= ((key & ((1UL) << 24)) << (29));    \
+    roundKey |= ((key & ((1UL) << 23)) >> (2));     \
+    roundKey |= ((key & ((1UL) << 22)) >> (9));     \
+    roundKey |= ((key & ((1UL) << 21)) >> (16));    \
+    roundKey |= ((key & ((1UL) << 20)) << (14));    \
+    roundKey |= ((key & ((1UL) << 19)) << (23));    \
+    roundKey |= ((key & ((1UL) << 18)) << (32));    \
+    roundKey |= ((key & ((1UL) << 17)) << (37));    \
+    roundKey |= ((key & ((1UL) << 16)) << (6));     \
+    roundKey |= ((key & ((1UL) << 15)) >> (1));     \
+    roundKey |= ((key & ((1UL) << 14)) >> (8));     \
+    roundKey |= ((key & ((1UL) << 13)) << (22));    \
+    roundKey |= ((key & ((1UL) << 12)) << (31));    \
+    roundKey |= ((key & ((1UL) << 11)) << (40));    \
+    roundKey |= ((key & ((1UL) << 10)) << (45));    \
+    roundKey |= ((key & ((1UL) << 9)) << (14));     \
+    roundKey |= ((key & ((1UL) << 8)) << (7));  \
+    roundKey |= ((key & ((1UL) << 7)) << (0));  \
+    roundKey |= ((key & ((1UL) << 6)) << (30));     \
+    roundKey |= ((key & ((1UL) << 5)) << (39));     \
+    roundKey |= ((key & ((1UL) << 4)) << (48));     \
+    roundKey |= ((key & ((1UL) << 3)) << (53));     \
+    roundKey |= ((key & ((1UL) << 2)) << (22));     \
+    roundKey |= ((key & ((1UL) << 1)) << (15));     \
+    roundKey |= ((key & ((1UL) << 0)) << (8));  \
+
+
+#define COMPUTE_IP(L, R, in)            \
+    uint64_t output;                    \
+for (i = 63; i >= 0; i--)           \
+output |= ((in & ((1) << i)) >> i) << table_DES_IP[i];  \
+for (i = 63; i >= 0; i--) {         \
+    if (i >= 32)                    \
+    L |= ((output & ((1) << i)) >> i) << (i - 32);      \
+    else                            \
+    R |= ((output & ((1) << i)) >> i) << (i);           \
+}                           
+
+__global__ void EncryptDES(uint64_t key, uint64_t in, uint64_t expected) {
+    int i, round;
+    uint32_t R, L, fout; 
+    uint64_t roundKey, out;
+
+    /*
+       COMPUTE_ROUND_KEY(roundKey, key)
+
+
+       COMPUTE_IP(L, R, in)
+     */
+
+    /*
+       for (round = 0; round < 16; round++) {
+       RotateRoundKeyLeft(roundKey);
+       if (round != 0 && round != 1 && round != 8 && round != 15)
+       RotateRoundKeyLeft(roundKey);
+
+       ComputeF(fout, R, roundKey);
+
+       L ^= fout;
+
+       Exchange_L_and_R(L, R);
+       }
+       Exchange_L_and_R(L, R);
+
+       ComputeFP(out, L, R);
+
+     */
+
+    /*
+       Logic need to be added in order to handle 
+       the out == expected situation.
+     */
+
+}
+
+void EncryptDES_host(uint64_t key, uint64_t in, uint64_t expected) {
+    int i, round;
+    uint32_t R, L, fout; 
+    uint64_t roundKey = 0UL, out;
+    
+    printf("sizeof(unsigned long long) is %d\n", sizeof(unsigned long long));
+
+    COMPUTE_ROUND_KEY(roundKey, key)
+    
+    printf("roundKey is: \n");
+    print_bits_array(roundKey);
+
+
+    COMPUTE_IP(L, R, in)
+    
+    printf("after IP is: \n");
+    printf("\t L:\n");
+    print_bits_array(L);
+    printf("\t R:\n");
+    print_bits_array(R);
+}
+
+
+int main(int argc, char **argv) {
+
+    uint64_t random_o = 0xF77D7F53F77D7F53;
+    uint64_t random_k = 0x2FEABF912FEABF;
+
+    printf("original is : \n");
+    print_bits_array(random_o);
+    printf("key is :\n");
+    print_bits_array(random_k);
+    EncryptDES_host(random_k, random_o, 0);
+
+
+    return 0;
+}
 
