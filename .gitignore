@@ -3,3 +3,5 @@ output_files/
 simulation/
 work/
 *.bak
+db/
+incremental_db/

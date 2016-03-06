@@ -5,10 +5,6 @@ module DE1_SoC (CLOCK_50, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, KEY, LEDR, SW);
 	input [3:0] KEY; // True when not pressed, False when pressed
 	input [9:0] SW;
 	
-	wire [31:0] clk;
-	 parameter whichClock = 24;
-	 clock_divider cdiv (CLOCK_50, clk);
-	
 	wire RESET = ~KEY[0];
 		
 	wire[63:0] plainText = 64'h0000000000000000;
@@ -47,7 +43,6 @@ module DE1_SoC (CLOCK_50, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, KEY, LEDR, SW);
 	wire[63:0] ct26;
 	wire[63:0] ct27;
 	wire[63:0] ct28;
-	
 	
 	des knownDes(knownCipertext, plainText, knownKey, 0, CLOCK_50);
 
@@ -435,16 +430,4 @@ module DE1_SoC_testbench();
 		@(posedge clk);
 		$stop; // End the simulation.
 	end
-endmodule
-
-module clock_divider (clock, divided_clocks);
- input clock;
- output [31:0] divided_clocks;
- reg [31:0] divided_clocks;
-
- initial
- divided_clocks = 0;
-
- always @(posedge clock)
- divided_clocks = divided_clocks + 1;
 endmodule
