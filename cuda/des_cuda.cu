@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 /**********************************************************************/
 /*                                                                    */
@@ -486,8 +487,9 @@ uint32_t COMPUTE_F(uint32_t fout, uint32_t R, uint64_t roundKey) {
 
 __global__ void EncryptDES_device(uint64_t in, uint64_t expected, uint64_t* result, uint64_t bound) {
 
-    int thread = threadIdx.x + blockIdx.x * blockDim.x;
-    uint64_t key = thread * bound;
+    int blockId = blockIdx.x + blockIdx.y * gridDim.x; 
+    int threadId = blockId * (blockDim.x * blockDim.y) + (threadIdx.y * blockDim.x) + threadIdx.x;
+    uint64_t key = threadId * bound;
     uint64_t counter = 0;
     
     while (counter != bound) {
@@ -536,11 +538,12 @@ __global__ void EncryptDES_device(uint64_t in, uint64_t expected, uint64_t* resu
 
         if (out == expected) {
             *result = out;
-            asm("trap;");
+             // asm("trap;");
         }
         counter++;
         key++;
     }
+    __syncthreads();
 }
 
 /*
@@ -643,6 +646,10 @@ int main(int argc, char **argv) {
     // uint64_t random_k = 0x2FEABF912FEABF;
     uint64_t expected = 0xDF86B0B30BD2530A;
 
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    float milliseconds = 0;
 
     uint64_t *result_host = (uint64_t *)calloc(1, sizeof(uint64_t));
     uint64_t *result_device;
@@ -652,17 +659,41 @@ int main(int argc, char **argv) {
     cudaMemcpy(result_device, result_host, sizeof(uint64_t),  cudaMemcpyHostToDevice);
     cudaMemcpyToSymbol(S_TABLE, table_DES_S, CONSTANT_SIZE);
 
-/*    
     int threads = MAX_THREADS_1D / 2;
-    int blocks = (MAX_BLOCKS_1D / 4);
-*/
-    EncryptDES_device<<<(65535 / 2), 1024>>>(random_o, expected, result_device, (0x0FFFFFFFFFFFFFFF / ((65536 / 2) * 1024)));
+    int blocks = (MAX_BLOCKS_1D - 1);
+
+    uint64_t overall_total = 0x0FFFFFFFFFFFFFFFULL;
+    uint64_t target_total = 0xFFFFFFFFFFULL;
+
+    dim3 dimGrid(blocks, blocks);
+    dim3 dimBlock(threads, threads);
+
+    cudaEventRecord(start, 0);
+    cudaEventSynchronize(start);
+
+    EncryptDES_device<<<dimGrid, dimBlock>>>(random_o, expected, result_device, (target_total / (blocks * blocks * threads * threads)));
+    cudaDeviceSynchronize();
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    printf("Cuda Execution Report: \n");
+    printf("Targetting number of testing key - %" PRIu64 "\n", target_total);
+    printf("Time spent %0.8f ms\n", milliseconds);
+    printf("\n");
+    printf("Estimated time to crack DES is %0.8f ms\n", (overall_total * 1.0 / target_total) * milliseconds);
 
     cudaMemcpy(result_host, result_device, sizeof(uint64_t), cudaMemcpyDeviceToHost);
 
     if (*result_host != 0x0)
         printf("Key found: %lX\n", *result_host);
-    printf("Key found: %lX\n", *result_host);
+
+
+    free(result_host);
+    cudaFree(result_device);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     return 0;
 }
