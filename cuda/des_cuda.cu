@@ -12,91 +12,10 @@
 /*                                                                    */
 /**********************************************************************/
 
-/* The number of bytes need for storing all the DES TABLES are:
- * 64 * 4 + 64 * 4 + 56 * 4 + 48 * 4 + 48 * 4 + 32 * 4 + 8 * 64 * 4 
- * = 3296 bytes
- */
-
-/*
- *  IP: Output bit table_DES_IP[i] equals input bit i.
- */
-static int table_DES_IP[64] = {
-    39,  7, 47, 15, 55, 23, 63, 31,
-    38,  6, 46, 14, 54, 22, 62, 30,
-    37,  5, 45, 13, 53, 21, 61, 29,
-    36,  4, 44, 12, 52, 20, 60, 28,
-    35,  3, 43, 11, 51, 19, 59, 27,
-    34,  2, 42, 10, 50, 18, 58, 26,
-    33,  1, 41,  9, 49, 17, 57, 25,
-    32,  0, 40,  8, 48, 16, 56, 24
-};
-
-
-/*
- *  FP: Output bit table_DES_FP[i] equals input bit i.
- */
-static int table_DES_FP[64] = {
-    57, 49, 41, 33, 25, 17,  9,  1,
-    59, 51, 43, 35, 27, 19, 11,  3,
-    61, 53, 45, 37, 29, 21, 13,  5,
-    63, 55, 47, 39, 31, 23, 15,  7,
-    56, 48, 40, 32, 24, 16,  8,  0,
-    58, 50, 42, 34, 26, 18, 10,  2,
-    60, 52, 44, 36, 28, 20, 12,  4,
-    62, 54, 46, 38, 30, 22, 14,  6
-};
-
-
-/*
- *  PC1: Permutation choice 1, used to pre-process the key
- */
-static int table_DES_PC1[56] = {
-    27, 19, 11, 31, 39, 47, 55,
-    26, 18, 10, 30, 38, 46, 54,
-    25, 17,  9, 29, 37, 45, 53,
-    24, 16,  8, 28, 36, 44, 52,
-    23, 15,  7,  3, 35, 43, 51,
-    22, 14,  6,  2, 34, 42, 50,
-    21, 13,  5,  1, 33, 41, 49,
-    20, 12,  4,  0, 32, 40, 48
-};
-
-
-/*
- *  PC2: Map 56-bit round key to a 48-bit subkey
- */
-static int table_DES_PC2[48] = {
-    24, 27, 20,  6, 14, 10,  3, 22,
-    0, 17,  7, 12,  8, 23, 11,  5,
-    16, 26,  1,  9, 19, 25,  4, 15,
-    54, 43, 36, 29, 49, 40, 48, 30,
-    52, 44, 37, 33, 46, 35, 50, 41,
-    28, 53, 51, 55, 32, 45, 39, 42
-};
-
-
-/*
- *  E: Expand 32-bit R to 48 bits.
- */
-static int table_DES_E[48] = {
-    31,  0,  1,  2,  3,  4,  3,  4,
-    5,  6,  7,  8,  7,  8,  9, 10,
-    11, 12, 11, 12, 13, 14, 15, 16,
-    15, 16, 17, 18, 19, 20, 19, 20,
-    21, 22, 23, 24, 23, 24, 25, 26,
-    27, 28, 27, 28, 29, 30, 31,  0
-};
-
-
-/*
- *  P: Permutation of S table outputs
- */
-static int table_DES_P[32] = {
-    11, 17,  5, 27, 25, 10, 20,  0,
-    13, 21,  3, 28, 29,  7, 18, 24,
-    31, 22, 12,  6, 26,  2, 16,  8,
-    14, 30,  4, 19,  1,  9, 15, 23
-};
+#define MAX_THREADS_1D 32
+#define MAX_BLOCKS_1D 256
+#define CONSTANT_SIZE (sizeof(int) * 8 * 64)
+__constant__ int S_TABLE[CONSTANT_SIZE];
 
 
 /*
@@ -145,11 +64,26 @@ static int table_DES_S[8][64] = {
         15,  5, 12, 11,  9,  3,  7, 14,  3, 10, 10,  0,  5,  6,  0, 13  }
 };
 
-#define MASK56(n) ((n) & 0x00FFFFFFFFFFFFFF)
-
+/*
 void print_bits_array(uint64_t n) {
     printf("%lX\n", n);
 }
+
+void print_bits(uint64_t n) {
+    for (int i = 0 ; i < 64; i++) {
+        if (i == 32)
+            printf("\n");
+        printf("%d", ((n) & 0x8000000000000000) >> 63);
+        n <<= 1;
+    }
+    printf("\n");
+    printf("\n");
+}
+*/
+        
+#define MASK56(n) ((n) & 0x00FFFFFFFFFFFFFF)
+#define MASK48(n) ((n) & 0x0000FFFFFFFFFFFF)
+
 
 #define COMPUTE_ROUND_KEY(roundKey, key)        \
     roundKey |= ((key & ((1UL) << 0)) << (27));     \
@@ -211,119 +145,408 @@ void print_bits_array(uint64_t n) {
 
 
 #define COMPUTE_IP(L, R, in)            \
-    uint64_t output = 0UL;                    \
-    output |= ((in & ((1UL) << 63)) >> (39));   \
-    output |= ((in & ((1UL) << 62)) >> (6));    \
-    output |= ((in & ((1UL) << 61)) >> (45));   \
-    output |= ((in & ((1UL) << 60)) >> (12));   \
-    output |= ((in & ((1UL) << 59)) >> (51));   \
-    output |= ((in & ((1UL) << 58)) >> (18));   \
-    output |= ((in & ((1UL) << 57)) >> (57));   \
-    output |= ((in & ((1UL) << 56)) >> (24));   \
-    output |= ((in & ((1UL) << 55)) >> (30));   \
-    output |= ((in & ((1UL) << 54)) << (3));    \
-    output |= ((in & ((1UL) << 53)) >> (36));   \
-    output |= ((in & ((1UL) << 52)) >> (3));    \
-    output |= ((in & ((1UL) << 51)) >> (42));   \
-    output |= ((in & ((1UL) << 50)) >> (9));    \
-    output |= ((in & ((1UL) << 49)) >> (48));   \
-    output |= ((in & ((1UL) << 48)) >> (15));   \
-    output |= ((in & ((1UL) << 47)) >> (21));   \
-    output |= ((in & ((1UL) << 46)) << (12));   \
-    output |= ((in & ((1UL) << 45)) >> (27));   \
-    output |= ((in & ((1UL) << 44)) << (6));    \
-    output |= ((in & ((1UL) << 43)) >> (33));   \
-    output |= ((in & ((1UL) << 42)) << (0));    \
-    output |= ((in & ((1UL) << 41)) >> (39));   \
-    output |= ((in & ((1UL) << 40)) >> (6));    \
-    output |= ((in & ((1UL) << 39)) >> (12));   \
-    output |= ((in & ((1UL) << 38)) << (21));   \
-    output |= ((in & ((1UL) << 37)) >> (18));   \
-    output |= ((in & ((1UL) << 36)) << (15));   \
-    output |= ((in & ((1UL) << 35)) >> (24));   \
-    output |= ((in & ((1UL) << 34)) << (9));    \
-    output |= ((in & ((1UL) << 33)) >> (30));   \
-    output |= ((in & ((1UL) << 32)) << (3));    \
-    output |= ((in & ((1UL) << 31)) >> (3));    \
-    output |= ((in & ((1UL) << 30)) << (30));   \
-    output |= ((in & ((1UL) << 29)) >> (9));    \
-    output |= ((in & ((1UL) << 28)) << (24));   \
-    output |= ((in & ((1UL) << 27)) >> (15));   \
-    output |= ((in & ((1UL) << 26)) << (18));   \
-    output |= ((in & ((1UL) << 25)) >> (21));   \
-    output |= ((in & ((1UL) << 24)) << (12));   \
-    output |= ((in & ((1UL) << 23)) << (6));    \
-    output |= ((in & ((1UL) << 22)) << (39));   \
-    output |= ((in & ((1UL) << 21)) << (0));    \
-    output |= ((in & ((1UL) << 20)) << (33));   \
-    output |= ((in & ((1UL) << 19)) >> (6));    \
-    output |= ((in & ((1UL) << 18)) << (27));   \
-    output |= ((in & ((1UL) << 17)) >> (12));   \
-    output |= ((in & ((1UL) << 16)) << (21));   \
-    output |= ((in & ((1UL) << 15)) << (15));   \
-    output |= ((in & ((1UL) << 14)) << (48));   \
-    output |= ((in & ((1UL) << 13)) << (9));    \
-    output |= ((in & ((1UL) << 12)) << (42));   \
-    output |= ((in & ((1UL) << 11)) << (3));    \
-    output |= ((in & ((1UL) << 10)) << (36));   \
-    output |= ((in & ((1UL) << 9)) >> (3));     \
-    output |= ((in & ((1UL) << 8)) << (30));    \
-    output |= ((in & ((1UL) << 7)) << (24));    \
-    output |= ((in & ((1UL) << 6)) << (57));    \
-    output |= ((in & ((1UL) << 5)) << (18));    \
-    output |= ((in & ((1UL) << 4)) << (51));    \
-    output |= ((in & ((1UL) << 3)) << (12));    \
-    output |= ((in & ((1UL) << 2)) << (45));    \
-    output |= ((in & ((1UL) << 1)) << (6));     \
-    output |= ((in & ((1UL) << 0)) << (39));    \
-                                                \
-    L = (output >> 32) & 0xFFFFFFFF;            \
-    R = (output) & 0xFFFFFFFF;                  \
+    temp = 0UL;                    \
+    temp |= ((in & ((1UL) << 63)) >> (39));  \
+    temp |= ((in & ((1UL) << 62)) >> (6));  \
+    temp |= ((in & ((1UL) << 61)) >> (45));     \
+    temp |= ((in & ((1UL) << 60)) >> (12));     \
+    temp |= ((in & ((1UL) << 59)) >> (51));     \
+    temp |= ((in & ((1UL) << 58)) >> (18));     \
+    temp |= ((in & ((1UL) << 57)) >> (57));     \
+    temp |= ((in & ((1UL) << 56)) >> (24));     \
+    temp |= ((in & ((1UL) << 55)) >> (30));     \
+    temp |= ((in & ((1UL) << 54)) << (3));  \
+    temp |= ((in & ((1UL) << 53)) >> (36));     \
+    temp |= ((in & ((1UL) << 52)) >> (3));  \
+    temp |= ((in & ((1UL) << 51)) >> (42));     \
+    temp |= ((in & ((1UL) << 50)) >> (9));  \
+    temp |= ((in & ((1UL) << 49)) >> (48));     \
+    temp |= ((in & ((1UL) << 48)) >> (15));     \
+    temp |= ((in & ((1UL) << 47)) >> (21));     \
+    temp |= ((in & ((1UL) << 46)) << (12));     \
+    temp |= ((in & ((1UL) << 45)) >> (27));     \
+    temp |= ((in & ((1UL) << 44)) << (6));  \
+    temp |= ((in & ((1UL) << 43)) >> (33));     \
+    temp |= ((in & ((1UL) << 42)) << (0));  \
+    temp |= ((in & ((1UL) << 41)) >> (39));     \
+    temp |= ((in & ((1UL) << 40)) >> (6));  \
+    temp |= ((in & ((1UL) << 39)) >> (12));     \
+    temp |= ((in & ((1UL) << 38)) << (21));     \
+    temp |= ((in & ((1UL) << 37)) >> (18));     \
+    temp |= ((in & ((1UL) << 36)) << (15));     \
+    temp |= ((in & ((1UL) << 35)) >> (24));     \
+    temp |= ((in & ((1UL) << 34)) << (9));  \
+    temp |= ((in & ((1UL) << 33)) >> (30));     \
+    temp |= ((in & ((1UL) << 32)) << (3));  \
+    temp |= ((in & ((1UL) << 31)) >> (3));  \
+    temp |= ((in & ((1UL) << 30)) << (30));     \
+    temp |= ((in & ((1UL) << 29)) >> (9));  \
+    temp |= ((in & ((1UL) << 28)) << (24));     \
+    temp |= ((in & ((1UL) << 27)) >> (15));     \
+    temp |= ((in & ((1UL) << 26)) << (18));     \
+    temp |= ((in & ((1UL) << 25)) >> (21));     \
+    temp |= ((in & ((1UL) << 24)) << (12));     \
+    temp |= ((in & ((1UL) << 23)) << (6));  \
+    temp |= ((in & ((1UL) << 22)) << (39));     \
+    temp |= ((in & ((1UL) << 21)) << (0));  \
+    temp |= ((in & ((1UL) << 20)) << (33));     \
+    temp |= ((in & ((1UL) << 19)) >> (6));  \
+    temp |= ((in & ((1UL) << 18)) << (27));     \
+    temp |= ((in & ((1UL) << 17)) >> (12));     \
+    temp |= ((in & ((1UL) << 16)) << (21));     \
+    temp |= ((in & ((1UL) << 15)) << (15));     \
+    temp |= ((in & ((1UL) << 14)) << (48));     \
+    temp |= ((in & ((1UL) << 13)) << (9));  \
+    temp |= ((in & ((1UL) << 12)) << (42));     \
+    temp |= ((in & ((1UL) << 11)) << (3));  \
+    temp |= ((in & ((1UL) << 10)) << (36));     \
+    temp |= ((in & ((1UL) << 9)) >> (3));   \
+    temp |= ((in & ((1UL) << 8)) << (30));  \
+    temp |= ((in & ((1UL) << 7)) << (24));  \
+    temp |= ((in & ((1UL) << 6)) << (57));  \
+    temp |= ((in & ((1UL) << 5)) << (18));  \
+    temp |= ((in & ((1UL) << 4)) << (51));  \
+    temp |= ((in & ((1UL) << 3)) << (12));  \
+    temp |= ((in & ((1UL) << 2)) << (45));  \
+    temp |= ((in & ((1UL) << 1)) << (6));   \
+    temp |= ((in & ((1UL) << 0)) << (39));  \
+    L = (temp >> 32) & 0xFFFFFFFF;            \
+    R = (temp) & 0xFFFFFFFF;                  \
 
 
+#define COMPUTE_FP(out, L, R)                   \
+    temp = L;                                   \
+    temp = (temp << 32) | R;                        \
+    out |= ((temp & ((1UL) << 63)) >> (57));    \
+    out |= ((temp & ((1UL) << 62)) >> (48));    \
+    out |= ((temp & ((1UL) << 61)) >> (39));    \
+    out |= ((temp & ((1UL) << 60)) >> (30));    \
+    out |= ((temp & ((1UL) << 59)) >> (21));    \
+    out |= ((temp & ((1UL) << 58)) >> (12));    \
+    out |= ((temp & ((1UL) << 57)) >> (3));     \
+    out |= ((temp & ((1UL) << 56)) << (6));     \
+    out |= ((temp & ((1UL) << 55)) >> (51));    \
+    out |= ((temp & ((1UL) << 54)) >> (42));    \
+    out |= ((temp & ((1UL) << 53)) >> (33));    \
+    out |= ((temp & ((1UL) << 52)) >> (24));    \
+    out |= ((temp & ((1UL) << 51)) >> (15));    \
+    out |= ((temp & ((1UL) << 50)) >> (6));     \
+    out |= ((temp & ((1UL) << 49)) << (3));     \
+    out |= ((temp & ((1UL) << 48)) << (12));    \
+    out |= ((temp & ((1UL) << 47)) >> (45));    \
+    out |= ((temp & ((1UL) << 46)) >> (36));    \
+    out |= ((temp & ((1UL) << 45)) >> (27));    \
+    out |= ((temp & ((1UL) << 44)) >> (18));    \
+    out |= ((temp & ((1UL) << 43)) >> (9));     \
+    out |= ((temp & ((1UL) << 42)) << (0));     \
+    out |= ((temp & ((1UL) << 41)) << (9));     \
+    out |= ((temp & ((1UL) << 40)) << (18));    \
+    out |= ((temp & ((1UL) << 39)) >> (39));    \
+    out |= ((temp & ((1UL) << 38)) >> (30));    \
+    out |= ((temp & ((1UL) << 37)) >> (21));    \
+    out |= ((temp & ((1UL) << 36)) >> (12));    \
+    out |= ((temp & ((1UL) << 35)) >> (3));     \
+    out |= ((temp & ((1UL) << 34)) << (6));     \
+    out |= ((temp & ((1UL) << 33)) << (15));    \
+    out |= ((temp & ((1UL) << 32)) << (24));    \
+    out |= ((temp & ((1UL) << 31)) >> (24));    \
+    out |= ((temp & ((1UL) << 30)) >> (15));    \
+    out |= ((temp & ((1UL) << 29)) >> (6));     \
+    out |= ((temp & ((1UL) << 28)) << (3));     \
+    out |= ((temp & ((1UL) << 27)) << (12));    \
+    out |= ((temp & ((1UL) << 26)) << (21));    \
+    out |= ((temp & ((1UL) << 25)) << (30));    \
+    out |= ((temp & ((1UL) << 24)) << (39));    \
+    out |= ((temp & ((1UL) << 23)) >> (18));    \
+    out |= ((temp & ((1UL) << 22)) >> (9));     \
+    out |= ((temp & ((1UL) << 21)) << (0));     \
+    out |= ((temp & ((1UL) << 20)) << (9));     \
+    out |= ((temp & ((1UL) << 19)) << (18));    \
+    out |= ((temp & ((1UL) << 18)) << (27));    \
+    out |= ((temp & ((1UL) << 17)) << (36));    \
+    out |= ((temp & ((1UL) << 16)) << (45));    \
+    out |= ((temp & ((1UL) << 15)) >> (12));    \
+    out |= ((temp & ((1UL) << 14)) >> (3));     \
+    out |= ((temp & ((1UL) << 13)) << (6));     \
+    out |= ((temp & ((1UL) << 12)) << (15));    \
+    out |= ((temp & ((1UL) << 11)) << (24));    \
+    out |= ((temp & ((1UL) << 10)) << (33));    \
+    out |= ((temp & ((1UL) << 9)) << (42));     \
+    out |= ((temp & ((1UL) << 8)) << (51));     \
+    out |= ((temp & ((1UL) << 7)) >> (6));  \
+    out |= ((temp & ((1UL) << 6)) << (3));  \
+    out |= ((temp & ((1UL) << 5)) << (12));     \
+    out |= ((temp & ((1UL) << 4)) << (21));     \
+    out |= ((temp & ((1UL) << 3)) << (30));     \
+    out |= ((temp & ((1UL) << 2)) << (39));     \
+    out |= ((temp & ((1UL) << 1)) << (48));     \
+    out |= ((temp & ((1UL) << 0)) << (57));     \
+
+#define COMPUTE_P(out, in)  \
+    out |= ((in & ((1UL) << 0)) << (11));   \
+    out |= ((in & ((1UL) << 1)) << (16));   \
+    out |= ((in & ((1UL) << 2)) << (3));    \
+    out |= ((in & ((1UL) << 3)) << (24));   \
+    out |= ((in & ((1UL) << 4)) << (21));   \
+    out |= ((in & ((1UL) << 5)) << (5));    \
+    out |= ((in & ((1UL) << 6)) << (14));   \
+    out |= ((in & ((1UL) << 7)) >> (7));    \
+    out |= ((in & ((1UL) << 8)) << (5));    \
+    out |= ((in & ((1UL) << 9)) << (12));   \
+    out |= ((in & ((1UL) << 10)) >> (7));   \
+    out |= ((in & ((1UL) << 11)) << (17));  \
+    out |= ((in & ((1UL) << 12)) << (17));  \
+    out |= ((in & ((1UL) << 13)) >> (6));   \
+    out |= ((in & ((1UL) << 14)) << (4));   \
+    out |= ((in & ((1UL) << 15)) << (9));   \
+    out |= ((in & ((1UL) << 16)) << (15));  \
+    out |= ((in & ((1UL) << 17)) << (5));   \
+    out |= ((in & ((1UL) << 18)) >> (6));   \
+    out |= ((in & ((1UL) << 19)) >> (13));  \
+    out |= ((in & ((1UL) << 20)) << (6));   \
+    out |= ((in & ((1UL) << 21)) >> (19));  \
+    out |= ((in & ((1UL) << 22)) >> (6));   \
+    out |= ((in & ((1UL) << 23)) >> (15));  \
+    out |= ((in & ((1UL) << 24)) >> (10));  \
+    out |= ((in & ((1UL) << 25)) << (5));   \
+    out |= ((in & ((1UL) << 26)) >> (22));  \
+    out |= ((in & ((1UL) << 27)) >> (8));   \
+    out |= ((in & ((1UL) << 28)) >> (27));  \
+    out |= ((in & ((1UL) << 29)) >> (20));  \
+    out |= ((in & ((1UL) << 30)) >> (15));  \
+    out |= ((in & ((1UL) << 31)) >> (8));   \
+
+
+#define COMPUTE_EXPANSION_E(expB, Rin)        \
+    expB |= ((R & ((1UL) << 31)) >> (31));  \
+    expB |= ((R & ((1UL) << 0)) << (1));    \
+    expB |= ((R & ((1UL) << 1)) << (1));    \
+    expB |= ((R & ((1UL) << 2)) << (1));    \
+    expB |= ((R & ((1UL) << 3)) << (1));    \
+    expB |= ((R & ((1UL) << 4)) << (1));    \
+    expB |= ((R & ((1UL) << 3)) << (3));    \
+    expB |= ((R & ((1UL) << 4)) << (3));    \
+    expB |= ((R & ((1UL) << 5)) << (3));    \
+    expB |= ((R & ((1UL) << 6)) << (3));    \
+    expB |= ((R & ((1UL) << 7)) << (3));    \
+    expB |= ((R & ((1UL) << 8)) << (3));    \
+    expB |= ((R & ((1UL) << 7)) << (5));    \
+    expB |= ((R & ((1UL) << 8)) << (5));    \
+    expB |= ((R & ((1UL) << 9)) << (5));    \
+    expB |= ((R & ((1UL) << 10)) << (5));   \
+    expB |= ((R & ((1UL) << 11)) << (5));   \
+    expB |= ((R & ((1UL) << 12)) << (5));   \
+    expB |= ((R & ((1UL) << 11)) << (7));   \
+    expB |= ((R & ((1UL) << 12)) << (7));   \
+    expB |= ((R & ((1UL) << 13)) << (7));   \
+    expB |= ((R & ((1UL) << 14)) << (7));   \
+    expB |= ((R & ((1UL) << 15)) << (7));   \
+    expB |= ((R & ((1UL) << 16)) << (7));   \
+    expB |= ((R & ((1UL) << 15)) << (9));   \
+    expB |= ((R & ((1UL) << 16)) << (9));   \
+    expB |= ((R & ((1UL) << 17)) << (9));   \
+    expB |= ((R & ((1UL) << 18)) << (9));   \
+    expB |= ((R & ((1UL) << 19)) << (9));   \
+    expB |= ((R & ((1UL) << 20)) << (9));   \
+    expB |= ((R & ((1UL) << 19)) << (11));  \
+    expB |= ((R & ((1UL) << 20)) << (11));  \
+    expB |= ((R & ((1UL) << 21)) << (11));  \
+    expB |= ((R & ((1UL) << 22)) << (11));  \
+    expB |= ((R & ((1UL) << 23)) << (11));  \
+    expB |= ((R & ((1UL) << 24)) << (11));  \
+    expB |= ((R & ((1UL) << 23)) << (13));  \
+    expB |= ((R & ((1UL) << 24)) << (13));  \
+    expB |= ((R & ((1UL) << 25)) << (13));  \
+    expB |= ((R & ((1UL) << 26)) << (13));  \
+    expB |= ((R & ((1UL) << 27)) << (13));  \
+    expB |= ((R & ((1UL) << 28)) << (13));  \
+    expB |= ((R & ((1UL) << 27)) << (15));  \
+    expB |= ((R & ((1UL) << 28)) << (15));  \
+    expB |= ((R & ((1UL) << 29)) << (15));  \
+    expB |= ((R & ((1UL) << 30)) << (15));  \
+    expB |= ((R & ((1UL) << 31)) << (15));  \
+    expB |= ((R & ((1UL) << 0)) << (47));   \
+
+
+#define COMPUTE_PC2(subkey, roundKey)       \
+    subkey |= ((roundKey & ((1UL) << 24)) >> (24));     \
+    subkey |= ((roundKey & ((1UL) << 27)) >> (26));     \
+    subkey |= ((roundKey & ((1UL) << 20)) >> (18));     \
+    subkey |= ((roundKey & ((1UL) << 6)) >> (3));   \
+    subkey |= ((roundKey & ((1UL) << 14)) >> (10));     \
+    subkey |= ((roundKey & ((1UL) << 10)) >> (5));  \
+    subkey |= ((roundKey & ((1UL) << 3)) << (3));   \
+    subkey |= ((roundKey & ((1UL) << 22)) >> (15));     \
+    subkey |= ((roundKey & ((1UL) << 0)) << (8));   \
+    subkey |= ((roundKey & ((1UL) << 17)) >> (8));  \
+    subkey |= ((roundKey & ((1UL) << 7)) << (3));   \
+    subkey |= ((roundKey & ((1UL) << 12)) >> (1));  \
+    subkey |= ((roundKey & ((1UL) << 8)) << (4));   \
+    subkey |= ((roundKey & ((1UL) << 23)) >> (10));     \
+    subkey |= ((roundKey & ((1UL) << 11)) << (3));  \
+    subkey |= ((roundKey & ((1UL) << 5)) << (10));  \
+    subkey |= ((roundKey & ((1UL) << 16)) >> (0));  \
+    subkey |= ((roundKey & ((1UL) << 26)) >> (9));  \
+    subkey |= ((roundKey & ((1UL) << 1)) << (17));  \
+    subkey |= ((roundKey & ((1UL) << 9)) << (10));  \
+    subkey |= ((roundKey & ((1UL) << 19)) << (1));  \
+    subkey |= ((roundKey & ((1UL) << 25)) >> (4));  \
+    subkey |= ((roundKey & ((1UL) << 4)) << (18));  \
+    subkey |= ((roundKey & ((1UL) << 15)) << (8));  \
+    subkey |= ((roundKey & ((1UL) << 54)) >> (30));     \
+    subkey |= ((roundKey & ((1UL) << 43)) >> (18));     \
+    subkey |= ((roundKey & ((1UL) << 36)) >> (10));     \
+    subkey |= ((roundKey & ((1UL) << 29)) >> (2));  \
+    subkey |= ((roundKey & ((1UL) << 49)) >> (21));     \
+    subkey |= ((roundKey & ((1UL) << 40)) >> (11));     \
+    subkey |= ((roundKey & ((1UL) << 48)) >> (18));     \
+    subkey |= ((roundKey & ((1UL) << 30)) << (1));  \
+    subkey |= ((roundKey & ((1UL) << 52)) >> (20));     \
+    subkey |= ((roundKey & ((1UL) << 44)) >> (11));     \
+    subkey |= ((roundKey & ((1UL) << 37)) >> (3));  \
+    subkey |= ((roundKey & ((1UL) << 33)) << (2));  \
+    subkey |= ((roundKey & ((1UL) << 46)) >> (10));     \
+    subkey |= ((roundKey & ((1UL) << 35)) << (2));  \
+    subkey |= ((roundKey & ((1UL) << 50)) >> (12));     \
+    subkey |= ((roundKey & ((1UL) << 41)) >> (2));  \
+    subkey |= ((roundKey & ((1UL) << 28)) << (12));     \
+    subkey |= ((roundKey & ((1UL) << 53)) >> (12));     \
+    subkey |= ((roundKey & ((1UL) << 51)) >> (9));  \
+    subkey |= ((roundKey & ((1UL) << 55)) >> (12));     \
+    subkey |= ((roundKey & ((1UL) << 32)) << (12));     \
+    subkey |= ((roundKey & ((1UL) << 45)) >> (0));  \
+    subkey |= ((roundKey & ((1UL) << 39)) << (7));  \
+    subkey |= ((roundKey & ((1UL) << 42)) << (5));  \
+
+
+#define COMPUTES_LOOKUP(k, sout, expandedBlock)     \
+    sout |= S_TABLE[k * 64 + ((expandedBlock >> (6 * k)) & 0x3F)] << (4 * k);      \
+
+/* This is the host code
+#define COMPUTES_LOOKUP(k, sout, expandedBlock)     \
+    sout |= table_DES_S[k][(expandedBlock >> (6 * k)) & 0x3F] << (4 * k);      \
+*/
+
+/*
+uint32_t COMPUTE_F(uint32_t fout, uint32_t R, uint64_t roundKey) {
+    uint64_t expandedBlock = 0UL, subkey = 0UL;
+    uint32_t sout = 0;
+    int i, k;
+
+    COMPUTE_EXPANSION_E(expandedBlock, R)
+
+    printf("expanded E is : \n");
+    print_bits_array(expandedBlock);
+
+    COMPUTE_PC2(subkey, roundKey)
+
+    printf("subkey is :\n");
+    print_bits_array(subkey);
+
+    expandedBlock ^= subkey;
+    // Mask expandedBlock
+    expandedBlock = MASK48(expandedBlock);
+    printf("Expanded E is :\n");
+    print_bits_array(expandedBlock);
+
+    for (k = 0; k < 8; k++) {
+        COMPUTES_LOOKUP(k, sout, expandedBlock)
+
+        printf("sout @ %d is :\n", k);
+        print_bits_array(sout);
+    }
+
+    COMPUTE_P(fout, sout)
+
+    printf("fout is :\n");
+    print_bits_array(fout);
+    printf("sout is :\n");
+    print_bits_array(sout);
+
+    return fout;
+}
+*/
+
+
+#define ROTATE_ROUND_KEY_LEFT(roundK)         \
+    uint64_t bit27 = ((roundK & ((1UL) << 27)) >> 27);\
+    uint64_t bit55 = ((roundK & ((1UL) << 55)) >> 27);\
+    roundK <<= 1;                             \
+    temp = roundK & 0x00FFFFFFEFFFFFFE;            \
+    roundK = temp | bit27 | bit55;           \
+
+
+
+
+#define EXCHANGE_L_AND_R(L, R)                  \
+    temp = L;                                   \
+    L = R;                                      \
+    R = temp;                                   \
     
 
-__global__ void EncryptDES(uint64_t key, uint64_t in, uint64_t expected) {
-    int i, round;
-    uint32_t R, L, fout; 
-    uint64_t roundKey, out;
+__global__ void EncryptDES_device(uint64_t in, uint64_t expected, uint64_t* result, uint64_t bound) {
 
-    /*
-       COMPUTE_ROUND_KEY(roundKey, key)
+    int thread = threadIdx.x + blockIdx.x * blockDim.x;
+    uint64_t key = thread * bound;
+    uint64_t counter = 0;
+    
+    while (counter != bound) {
+
+        uint32_t R = 0, L = 0; 
+        uint64_t roundKey = 0UL, out = 0UL, temp = 0UL;
+
+        COMPUTE_ROUND_KEY(roundKey, key)
+
+        COMPUTE_IP(L, R, in)
+
+        for (int round = 0; round < 16; round++) {
+            uint64_t expandedBlock = 0UL, subkey = 0UL;
+            uint32_t sout = 0;
+            uint32_t fout = 0;
+
+            ROTATE_ROUND_KEY_LEFT(roundKey)
+
+            if (round != 0 && round != 1 && round != 8 && round != 15) {
+                ROTATE_ROUND_KEY_LEFT(roundKey)
+            }
 
 
-       COMPUTE_IP(L, R, in)
-     */
+            COMPUTE_EXPANSION_E(expandedBlock, R)
 
-    /*
-       for (round = 0; round < 16; round++) {
-       RotateRoundKeyLeft(roundKey);
-       if (round != 0 && round != 1 && round != 8 && round != 15)
-       RotateRoundKeyLeft(roundKey);
+            COMPUTE_PC2(subkey, roundKey)
 
-       ComputeF(fout, R, roundKey);
 
-       L ^= fout;
+            expandedBlock ^= subkey;
+            expandedBlock = MASK48(expandedBlock);
 
-       Exchange_L_and_R(L, R);
-       }
-       Exchange_L_and_R(L, R);
+            for (int i = 0; i < 8; i++) {
+                COMPUTES_LOOKUP(i, sout, expandedBlock)
+            }
 
-       ComputeFP(out, L, R);
+            COMPUTE_P(fout, sout)
 
-     */
+                L ^= fout;
 
-    /*
-       Logic need to be added in order to handle 
-       the out == expected situation.
-     */
+            EXCHANGE_L_AND_R(L, R)
 
+        }
+        EXCHANGE_L_AND_R(L, R)
+
+        COMPUTE_FP(out, L, R)
+
+        if (out == expected) {
+            *result = out;
+            asm("trap;");
+        }
+        counter++;
+        key++;
+    }
 }
 
+/*
 void EncryptDES_host(uint64_t key, uint64_t in, uint64_t expected) {
-    int i = 0, round = 0;
-    uint32_t R = 0, L = 0, fout = 0; 
-    uint64_t roundKey = 0UL, out;
+    uint32_t R = 0, L = 0; 
+    uint64_t roundKey = 0UL, out = 0UL, temp = 0UL;
     
     printf("sizeof(unsigned long long) is %d\n", sizeof(unsigned long long));
 
@@ -340,20 +563,106 @@ void EncryptDES_host(uint64_t key, uint64_t in, uint64_t expected) {
     print_bits_array(L);
     printf("\t R:\n");
     print_bits_array(R);
+
+    for (int round = 0; round < 16; round++) {
+        uint64_t expandedBlock = 0UL, subkey = 0UL;
+        uint32_t sout = 0;
+        uint32_t fout = 0;
+
+        printf("------------------------- ROUND %d ----------------------\n", round);
+    
+
+        ROTATE_ROUND_KEY_LEFT(roundKey)
+        
+        printf("\t roundKey:\n");
+        print_bits_array(roundKey);
+
+        if (round != 0 && round != 1 && round != 8 && round != 15) {
+            ROTATE_ROUND_KEY_LEFT(roundKey)
+        }
+
+
+        COMPUTE_EXPANSION_E(expandedBlock, R)
+
+        printf("expanded E is : \n");
+        print_bits_array(expandedBlock);
+
+        COMPUTE_PC2(subkey, roundKey)
+
+        printf("subkey is :\n");
+        print_bits_array(subkey);
+
+        expandedBlock ^= subkey;
+        // Mask expandedBlock
+        expandedBlock = MASK48(expandedBlock);
+        printf("Expanded E is :\n");
+        print_bits_array(expandedBlock);
+
+        for (int i = 0; i < 8; i++) {
+               Comment out for compilation of the device code
+
+            COMPUTES_LOOKUP(i, sout, expandedBlock)
+            printf("sout @ %d is :\n", i);
+            print_bits_array(sout);
+        }
+
+        COMPUTE_P(fout, sout)
+
+        printf("fout is :\n");
+        print_bits_array(fout);
+        printf("sout is :\n");
+        print_bits_array(sout);
+
+        printf("f is : \n");
+        print_bits_array(fout);
+
+        L ^= fout;
+
+        printf("L^f is : \n");
+        print_bits_array(L);
+        
+        EXCHANGE_L_AND_R(L, R)
+
+        printf("------------------------- ROUND %d end ------------------\n", round);
+         
+    }
+    EXCHANGE_L_AND_R(L, R)
+
+    COMPUTE_FP(out, L, R)
+    
+    printf("FP out is \n");
+    print_bits_array(out);
+
 }
+*/
 
 
 int main(int argc, char **argv) {
 
     uint64_t random_o = 0xF77D7F53F77D7F53;
-    uint64_t random_k = 0x2FEABF912FEABF;
+    // uint64_t random_k = 0x2FEABF912FEABF;
+    uint64_t expected = 0xDF86B0B30BD2530A;
 
-    printf("original is : \n");
-    print_bits_array(random_o);
-    printf("key is :\n");
-    print_bits_array(random_k);
-    EncryptDES_host(random_k, random_o, 0);
 
+    uint64_t *result_host = (uint64_t *)calloc(1, sizeof(uint64_t));
+    uint64_t *result_device;
+    cudaMalloc(&result_device, sizeof(uint64_t));
+
+
+    cudaMemcpy(result_device, result_host, sizeof(uint64_t),  cudaMemcpyHostToDevice);
+    cudaMemcpyToSymbol(S_TABLE, table_DES_S, CONSTANT_SIZE);
+
+/*    
+    int threads = MAX_THREADS_1D / 2;
+    int blocks = (MAX_BLOCKS_1D / 4);
+*/
+    EncryptDES_device<<<(65535 / 2), 1024>>>(random_o, expected, result_device, (0x0FFFFFFFFFFFFFFF / ((65536 / 2) * 1024)));
+
+    cudaMemcpy(result_host, result_device, sizeof(uint64_t), cudaMemcpyDeviceToHost);
+
+    if (*result_host != 0x0)
+        printf("Key found: %lX\n", *result_host);
+    printf("Key found: %lX\n", *result_host);
 
     return 0;
 }

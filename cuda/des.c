@@ -349,6 +349,9 @@ static void RotateRoundKeyLeft(bool roundKey[56]) {
 
   temp1 = roundKey[27];
   temp2 = roundKey[55];
+
+  printf("temp1 is %d\n", (int) temp1);
+  printf("temp2 is %d\n", (int) temp2);
   for (i = 27; i >= 1; i--) {
     roundKey[i] = roundKey[i-1];
     roundKey[i+28] = roundKey[i+28-1];
@@ -426,7 +429,8 @@ static void ComputeFP(bool outBlk[64], bool L[32], bool R[32]) {
  *  ComputeF: Compute the DES f function and store the result in fout.
  */
 static void ComputeF(bool fout[32], bool R[32], bool roundKey[56]) {
-  bool expandedBlock[48], subkey[48], sout[32];
+  bool expandedBlock[48], subkey[48];
+  bool *sout = calloc(32, sizeof(bool));
   int i,k;
 
   /* Expand R into 48 bits using the E expansion */
@@ -441,12 +445,19 @@ static void ComputeF(bool fout[32], bool R[32], bool roundKey[56]) {
   for (i = 0; i < 48; i++)
     expandedBlock[i] ^= subkey[i];
 
+  DumpBin("expanded E ^", expandedBlock, 48);
+
   /* Divide expandedBlock into 6-bit chunks and do S table lookups */
-  for (k = 0; k < 8; k++)
+  for (k = 0; k < 8; k++) {
     ComputeS_Lookup(k, sout+4*k, expandedBlock+6*k);
+    printf("k is %d\n", k);
+    DumpBin("sout", sout, 32);
+  }
 
   /* To complete the f() calculation, do permutation P on the S table output */
   ComputeP(fout, sout);
+  DumpBin("sout", sout, 32);
+  DumpBin("fout", fout, 32);
 }
 
 
