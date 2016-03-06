@@ -1,0 +1,10 @@
+ https://drive.google.com/folderview?id=0B2JEbfnuVaLYTjFOZ09KNENhWVk#
+
+
+CSE 390c lab 6::::::
+might be able to do something by changing ns and ps in winner.sv to only 2 bit registers then making 7 bit wires or something to assign hex to at the end based on the case, or another option is like last time, putting parameters together in one array then splitting from wires, might save some. 
+
+lab7
+
+blacking statement in lfsr example from slide 0 compare with mine
+
