@@ -8,7 +8,7 @@ module DE1_SoC (CLOCK_50, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, KEY, LEDR, SW);
 	wire RESET = ~KEY[0];
 		
 	wire[63:0] plainText = 64'h0000000000000000;
-	wire[55:0] knownKey  = 100;//{ SW[9], 3'b000, SW[8], 3'b000, SW[7], 3'b000, SW[6], 3'b000, SW[5], 3'b000, SW[4], 3'b000, SW[3], 3'b000, SW[2], 3'b000, SW[1], 3'b000, SW[0], 3'b000, 16'h0000 };
+	wire[55:0] knownKey  = { SW[9], 3'b000, SW[8], 3'b000, SW[7], 3'b000, SW[6], 3'b000, SW[5], 3'b000, SW[4], 3'b000, SW[3], 3'b000, SW[2], 3'b000, SW[1], 3'b000, SW[0], 3'b000, 16'h0000 };
 	wire[63:0] knownCipertext;
 	
 	reg[55:0] key;
@@ -298,11 +298,11 @@ module DE1_SoC_testbench();
 //		HEX1 <= 7'b0000000;
 //		HEX2 <= 7'b0000000;
 //		HEX3 <= 7'b0000000;HEX4 <= 7'b0000000;HEX5 <= 7'b0000000;
+		KEY[3:0] <= 4'b1111;
 		@(posedge clk);
-		KEY[3:0] <= 4'b0000;
+		SW[9] <= 1; 
 		@(posedge clk);
 		SW[9]	<= 0;
-		KEY[3:0] <= 4'b1111;
 		@(posedge clk);
 		@(posedge clk);
 		@(posedge clk);
