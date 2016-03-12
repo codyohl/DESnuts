@@ -9,4 +9,4 @@ FPGA used Verlog, with the S-box implementation. CUDA used.. CUDA (C/C++) implem
 
 # Contributor
 All We Human
-
+Blooregard 
